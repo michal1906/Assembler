@@ -1,7 +1,7 @@
 data segment
-  INPUT_NAME    db 256 dup(0)
-  OUTPUT_NAME   db 256 dup(0)
-  BUFFER        db 4096 dup(0) ;Tutaj szczytuje bloki danych
+  INPUT_NAME    db 256 dup(0) ;Nazwa pliku wejsciowego
+  OUTPUT_NAME   db 256 dup(0) ;Nazwa pliku wyjsciowego
+  BUFFER        db 4096 dup(0), 0 ;Tutaj wczytuje bloki danych
   BUFFER_n      db 0 ;Rozmiar pobranych parametrow
   ERROR1        db "Nie podano argumentow $"
   ERROR2        db "Zbyt malo argumentow $"
@@ -13,7 +13,7 @@ data segment
   Read_error              db "Nie udalo sie odczytac danych z pliku $"
   NewFile_error           db "Nie udalo sie utworzyc nowego pliku $"
   FILE_HANDLE             dw 0 ;Uchwyt na otwarty plik
-  RES_TABLE               dd 256 dup(0)
+  RES_TABLE               dd 256 dup(0) ;Tablica z wynikami
       
 data ends
 code segment
@@ -230,14 +230,16 @@ Read endp
 Analyse proc
     
     lea SI, DS:[BUFFER] ; Adress buffora
-    mov CX, 2 ;Tyle bajtow bedziemy pobierac
+    mov CX, 4096 ;Tyle bajtow bedziemy pobierac
     
     @@Analyse_loop:
         call Read ;wczytaj bajty z pliku   
         
         push CX
+        push AX ;?
           mov CX, AX
           call AnalyseBuffer
+        pop AX ;?
         pop CX
         
     cmp AX, CX
@@ -354,6 +356,11 @@ push DX
 
   GenerateBuffer_end:  
 
+  ;Dodajemy znak konca stringu
+  mov AL, 0
+  mov ES:[DI], AL
+  ;inc DI
+
 pop DX
 pop AX
 pop SI
@@ -466,8 +473,9 @@ SizeOfaBuffer proc
 
     xor CX, CX
     Size_loop:
-        mov AX, DS:[SI]
-        cmp AX, 0
+        xor AX, AX
+        mov AL, byte ptr DS:[SI]
+        cmp AL, 0
         je Size_end
         inc SI
         inc CX
