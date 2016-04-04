@@ -19,30 +19,28 @@ data ends
 code segment
 start:
 
-    call Input
+    call Input ;Funkcja pobierajaca wejscie do buffora
 
     mov AX, seg stack_pointer ;inicjalizacja stosu
     mov SS, AX          ;Segment Stosu
     lea SP, SS:[stack_pointer]  ;Wskaźnik na wierzchołek stosu  
 
-    call Parser 
-
+    call Parser
 
     mov AX, seg INPUT_NAME
-    mov DS, AX
+    mov DS, AX ;zapamietuje segment danych w DS i ES
     mov ES, AX
 
     lea DX, DS:[INPUT_NAME] ;Laduje do DX nazwe otwieranego pliku
-    call OpenFile   
-    call Analyse
-    call CloseFile   
-    
+    call OpenFile   ;Otwieram plik wejsciowy
+    call Analyse ;Analizuje dane z pliku
+    call CloseFile ;Zapykam plik wejsciowy  
 
-    call NewFile
-    call GenerateBuffer
-    call SaveBuffer
+    call NewFile ;Tworzy nowy plik 
+    call GenerateBuffer ;Zapisuje wyniki do BUFFER
+    call SaveBuffer ;Zapisuje BUFFER w pliku
 
-    call CloseFile
+    call CloseFile ;Zamykam plik wyjsciowy
     
     KONIECPROGRAMU:
     mov AX, 4C00h       ;zakoncz program
@@ -56,13 +54,13 @@ Input proc
     mov  CL, byte ptr DS:[080h] ;pobieram ilość znaków
     inc CX ;inkrementuje to po to żeby pobrać znak końca stringu
     
-    lea SI, DS:[081h]
-    lea DI, ES:[BUFFER]
+    lea SI, DS:[081h] ;w 081h mamy ilosc parametrow
+    lea DI, ES:[BUFFER] ;wskaznik na poczatek bufora
     rep movsb ;Kopiujemy argumenty do BUFFER
 
     xor DX, DX                  
     mov DL, byte ptr DS:[080h] ;Zapamietuje w DL pobraną ilość znaków
-    mov AX, seg data
+    mov AX, seg data 
     mov DS, AX
     mov byte ptr DS:[BUFFER_n], DL      ;zapisuje pobrana ilosc znakow w BUFFER_n
     ret
@@ -144,6 +142,7 @@ Parser proc
     ret
 Parser endp
 
+;Funkcja przechodzi wszystkie spacje az do natrafienia jakiegos znaku
 GoThroughSpaces proc
     @@GoThroughSpaces_loop:
         mov AL, DS:[SI] ;Pobieramy kolejny znak do AL
@@ -160,7 +159,7 @@ GothroughSpaces endp
 FileName proc
     xor AX, AX
     @@FileName_loop:
-        mov AL, DS:[SI]
+        mov AL, DS:[SI] ;Pobieram kolejny znak
         cmp AL, 13 ;Koniec Stringa?
         je @@FileName_end
         cmp AL, 32 ;Kolejna spacja?
@@ -170,14 +169,13 @@ FileName proc
     @@FileName_end:
 
     push AX
-    mov AL, 0
+    mov AL, 0 ;Dodaje 0 na koncu nazwy pliku
     mov DS:[SI], AL
     inc SI
     pop AX
 
     ret
 FileName endp
-
 
 OpenFile proc   
   
@@ -200,16 +198,16 @@ OpenFile proc
 OpenFile endp  
 
 NewFile proc
-    mov AH, 3Ch
-    xor CX, CX
+    mov AH, 3Ch ;Funkcja 3Ch otwiera plik
+    xor CX, CX ;W CX ma podane atrybuty
     lea DX, DS:[OUTPUT_NAME] ;Nazwa pliku wyjsiowego
     int 21h
     mov DS:[FILE_HANDLE], AX ;Zapamietuje uchwyt nowego pliku
     jc @@NewFile_error
         ret
     @@NewFile_error:
-        lea DX, DS:[NewFile_error]
-        mov AH, 9
+        lea DX, DS:[NewFile_error] ;jezeli nie udalo sie otworzyc pliku, wypisz error
+        mov AH, 9   
         int 21h
         jmp KONIECPROGRAMU
 NewFile endp
@@ -218,12 +216,12 @@ NewFile endp
 Read proc
     mov BX, DS:[FILE_HANDLE] ;uchwyt pliku
     lea DX, DS:[BUFFER] ;addres buffora   
-    mov AH, 3Fh
+    mov AH, 3Fh ;Funkcja czytajaca z pliku
     int 21h
     jc @@Read_error
         ret
     @@Read_error:
-        lea DX, DS:[Read_error]
+        lea DX, DS:[Read_error] ;wypisz info. o bledzie
         jmp KONIECPROGRAMU
 Read endp            
   
@@ -233,18 +231,17 @@ Analyse proc
     mov CX, 4096 ;Tyle bajtow bedziemy pobierac
     
     @@Analyse_loop:
-        call Read ;wczytaj bajty z pliku   
+        call Read ;wczytaj bajty z pliku, AX-ile bajtow pobrano  
         
         push CX
-        push AX ;?
-          mov CX, AX
-          call AnalyseBuffer
-        pop AX ;?
+        push AX
+          mov CX, AX ;Zapamietaj ile danych pobrano
+          call AnalyseBuffer ;Analizuj pobrane dane
+        pop AX
         pop CX
         
-    cmp AX, CX
-    jae @@Analyse_loop
-                 
+    cmp AX, CX ;jezeli pobrano mniej niz CX to mamy koniec pliku
+    jae @@Analyse_loop      
     ret
 Analyse endp
 
@@ -257,16 +254,18 @@ AnalyseBuffer proc
     je AnalyseBuffer_end     
     
       xor AX, AX
-      mov AL, DS:[SI]
-      lea DI, DS:[RES_TABLE]
-      mov BL, 4
+      mov AL, DS:[SI] ;pobieram kolejny bit
+      lea DI, DS:[RES_TABLE] ;wskaznik na tablice wynikow
+      mov BL, 4 ;mnoze to przez 4 poniewaz tablica RES_TABLE jest podwojnym slowem
       mul BL
-      add DI, AX
+      add DI, AX ;Przesuwam sie w tablicy
               
-      add word ptr DS:[DI], 1
-      adc word ptr DS:[DI+2], 0
+      add word ptr DS:[DI], 1 ;Inkrementuje wynik
+      adc word ptr DS:[DI+2], 0 ;wynik jest podwójnym słowem
+      ; adc = add with carry
+      ; sumuje A, B oraz flage CF
     
-      inc SI
+      inc SI ;Przesuwam sie w tablicy BUFFER
       dec CX
     
     jmp AnaluseBuffer_loop 
@@ -286,8 +285,7 @@ push DX
   
   lea DI, ES:[BUFFER] ;Wskaznik na buffor
 
-  ;================================
-  ; Tytul
+  ; Zapisz tytul do buffora
    lea SI, DS:[HEAD]
    mov CX, 25
    HEAD_loop:
@@ -298,10 +296,8 @@ push DX
       inc DI 
    pop CX
    loop HEAD_loop
-  ;================================
   
-  ;================================
-  ; Nazwa pliku
+  ; zapisz nazwe pliku do buffora
     lea SI, DS:[INPUT_NAME]
     call SizeOfaBuffer
     NAME_loop:
@@ -312,37 +308,30 @@ push DX
         inc DI
     pop CX
     loop NAME_loop
-  ;================================
 
-  ;================================
-   ;Enter
+    ;dodaje przejscie do nowej lini do BUFFER
    mov AL, 10
    mov ES:[DI], AL
    inc DI
-  ;================================
-
 
   lea SI, DS:[RES_TABLE] ;Tablica z wynikami w dd
-
   xor AX, AX
   mov AX, 0 ;Przechdze cala tablice RES_TABLE
   GenerateBuffer_loop:
   push AX
     
-    ;================================
     ; Zapisz numer bajtu do pliku
       call SaveByteID
-    ;================================
-    ;================================
-    ; Zapisz dwukropek i spacje
+
+    ; Zapisz dwukropek
       call SaveColon
-    ;================================
 
     push AX
     push DX
+        ;zapisuje kolejną liczbę w DX:AX
         mov AX, DS:[SI]
         mov DX, DS:[SI+2]
-        call RenderDWORD
+        call RenderDWORD ;Zapisuje liczbe do buffora w postaci dziesietnej
     pop DX
     pop AX
 
@@ -359,7 +348,6 @@ push DX
   ;Dodajemy znak konca stringu
   mov AL, 0
   mov ES:[DI], AL
-  ;inc DI
 
 pop DX
 pop AX
@@ -369,22 +357,26 @@ pop CX
   ret
 GenerateBuffer endp
 
+;Fukcja zapisujaca ':' do ES:DI
 SaveColon proc
   mov ES:[DI], byte ptr ':'
   inc DI
   ret
 SaveColon endp
 
+;Funkcja zapisuj ID bajtu do ES:[DI]
 SaveByteID proc
   push AX
   push BX
 
+  ;Najpierw czesc setną
   mov BL, 100
   div BL
   add AL, '0'
   mov ES:[DI], AL
   inc DI
 
+  ;Część dziesiętną
   mov AL, AH
   cbw
   mov BL, 10
@@ -393,6 +385,7 @@ SaveByteID proc
   mov ES:[DI], AL
   inc DI
 
+  ;Jedności
   add AH, '0'
   mov ES:[DI], AH
   inc DI
@@ -402,10 +395,11 @@ SaveByteID proc
   ret
 SaveByteID endp
 
-
-
+;Funkcja zapisuje podwójne społo w postaci dziesiętnej do buffor
+;Dzielimy przez 10 a cyfry wkładamy na stos
 RenderDWORD proc
   
+  ;Sprawdzamy czy liczba = 0, jezeli tak to zapisujemy do ES:[DI] zero
   cmp DX, 0
   jne @@not_zero
   cmp AX, 0
@@ -416,57 +410,63 @@ RenderDWORD proc
   inc DI
   jmp @@end
 
+  ;Jezeli nie jest zerem to dzielimy to przez 10
   @@not_zero:
   xor BX, BX
   xor CX, CX
      RenderDWORD_loop:
+            ;sprwadzamy czy nalezy dalej dzielic
           cmp DX, 0
           jne RenderDWORD_work
           cmp AX, 0
           je RenderDWORD_end
 
           RenderDWORD_work:
-               call DivBy10
-               push BX
-               inc CX
+               call DivBy10 ;dzielenie przez 10
+               push BX ;wrzucam cyfre na stos
+               inc CX ;licze ile mam elementow na stosie
                jmp RenderDWORD_loop
 
      RenderDWORD_end:
 
      Stack_loop:
-          pop AX
-          add AL, '0'
-          mov ES:[DI], AL
-          inc DI
+          pop AX ;pobieram element ze stosu
+          add AL, '0' ;dodaje '0' zeby miec cyfre w ascii
+          mov ES:[DI], AL ;zapisuje znak do bufora
+          inc DI ;przesuwam sie wskaznikiem w buforze
      loop Stack_loop
 
      @@end:
 
-    mov AL, 10
+    mov AL, 10 ;dodaje do bufora przejscie do nowej lini
     mov ES:[DI], AL
     inc DI
 
   ret
 RenderDWORD endp
 
+;Dzieli liczbe znajdujaca sie w DX:AX, zwraca reszte w BX
 DivBy10 proc
      push CX
-     mov BX, 10
+
+     mov BX, 10 ;dzielimy przez 10
      push AX
-     mov AX, DX
+     mov AX, DX ;najpierw dzielimy bardziej znaczaca czesc slowa
      xor DX, DX
-     div BX
-     mov CX, AX
-     pop AX
-     div BX
-     mov BX, DX
-     mov DX, CX
+     div BX ;dzielimy czesc pochodzaca z DX
+     mov CX, AX ;zapisujemy wynik dzielenia
+     pop AX ;pobieramy mlodsza czesc slowa
+     div BX ;dzielimy mlodsza czesc slowa
+     mov BX, DX ;zapamietujemy reszte
+     mov DX, CX ;zapisujemy starsza podzielona czesc slowa
+     
      pop CX
      ret
 DivBy10 endp 
 
 
 ;Liczy rozmiar stringa w DS:[SI]
+;przechodzi string az znajdzie znak konca stringu
 SizeOfaBuffer proc
     push SI
     push AX
@@ -474,10 +474,10 @@ SizeOfaBuffer proc
     xor CX, CX
     Size_loop:
         xor AX, AX
-        mov AL, byte ptr DS:[SI]
-        cmp AL, 0
-        je Size_end
-        inc SI
+        mov AL, byte ptr DS:[SI] ;pobieram znak
+        cmp AL, 0 ;sprawdzamy znak konca ?
+        je Size_end ;jesli tak to koniec, w CX mamy rozmiar 
+        inc SI ;jezeli nie to przesuwamy sie dalej
         inc CX
     jmp Size_loop
     Size_end:
@@ -488,39 +488,40 @@ SizeOfaBuffer proc
 SizeOfaBuffer endp
 
 SaveBuffer proc
-    mov AH, 40h
-    mov BX, DS:[FILE_HANDLE]
-    lea SI, DS:[BUFFER]
-    call SizeOfaBuffer
-    lea DX, DS:[BUFFER]
+    mov AH, 40h ; Funkcja zapisuje dane do pliku
+    mov BX, DS:[FILE_HANDLE] ; Do BX podaje uchwyt pliku do ktorego zapisujemy
+    lea SI, DS:[BUFFER] ;Wskaznik na buffer z ktorego zapisujemy potrzebny do policzenia rozmairu
+    call SizeOfaBuffer ; W CX mamy ilosc bajtow do zapisania
+    lea DX, DS:[BUFFER]; W DX mamy wskaznik na buffer dla funkcji 40h
     int 21h
 
-     jc @@Save_error
+     jc @@Save_error ;jezeli udalo sie zapisac to konczymy
         ret
         
-    @@Save_error:
-          lea DX, DS:[SaveBuffer_error]
+    @@Save_error: ;jezeli nie udalo sie zapisac
+          lea DX, DS:[SaveBuffer_error] ;wypisujemy error
           mov AH, 9
           int 21h
           jmp KONIECPROGRAMU
 SaveBuffer endp
 
+;funkcja zamykajaca otwarty plik
 CloseFile proc
     mov BX, DS:[FILE_HANDLE]
     mov AH, 3Eh
     int 21h 
-    jc @@CloseFile_error
+    jc @@CloseFile_error ;jezeli udalo sie zamknac plik to koniec
         ret
-    @@CloseFile_error:
+    @@CloseFile_error: ;jezeli nie to wypisujemy info. o bledzie
         lea DX, DS:[CloseFile_error]
         jmp KONIECPROGRAMU
 CloseFile endp
 
 code ends
 
-stack segment stack
+stack segment stack ;segment stosu
                 dw  20 dup(?) 
-stack_pointer   dw  ?           
+stack_pointer   dw  ? ;wskaznik na stos
 stack ends
 
 end start
