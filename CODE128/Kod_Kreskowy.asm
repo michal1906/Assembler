@@ -177,7 +177,7 @@ UstawX proc
 	div BX
 	
 	sub AX, 11								;odejmuje od X 11 zeby zostawic miejsce na quietzone i na StartCode
-	mov word ptr DS:[X], AX							;zapamietuje wszystko w X
+	mov word ptr DS:[X], AX					;zapamietuje wszystko w X
 	ret
 UstawX endp
  
@@ -209,9 +209,9 @@ CheckCharacter endp
  
 main proc
 	xor CX, CX
-	mov CL, byte ptr DS:[BUFFOR_n]					;pobieram ilosc pobranych znakow do CX
+	mov CL, byte ptr DS:[BUFFOR_n]			;pobieram ilosc pobranych znakow do CX
 	call UstawX								;ustawiam odpowiednio X zeby rysowac na srodku ekranu
-	mov byte ptr DS:[Kolor], 0						;ustawiam kolor rysowania na czarny
+	mov byte ptr DS:[Kolor], 0				;ustawiam kolor rysowania na czarny
 
 	mov CX, 11 								;Wypiszuje StartCode
 	@@StartCode:
